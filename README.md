@@ -298,6 +298,20 @@ python grounded_sam_demo.py \
   --text_prompt "bear" \
   --device "cuda"
 ```
+Z440 Linux:
+```bash
+export CUDA_VISIBLE_DEVICES=0
+python3 grounded_sam_demo.py \
+  --config GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py \
+  --grounded_checkpoint groundingdino_swint_ogc.pth \
+  --sam_checkpoint sam_vit_h_4b8939.pth \
+  --input_image "/home/leyang/Documents/construction_site_images/11.png" \
+  --output_dir "/home/leyang/Documents/construction_site_images_output" \
+  --box_threshold 0.2 \
+  --text_threshold 0.2 \
+  --text_prompt "Crane. Excavator. Bulldozer. Dump Truck. Worker." \
+  --device "cuda"
+```
 
 - The model prediction visualization will be saved in `output_dir` as follow:
 
@@ -380,6 +394,22 @@ python automatic_label_tag2text_demo.py \
   --iou_threshold 0.5 \
   --device "cuda"
 ```
+Z440 Linux:
+```bash
+export CUDA_VISIBLE_DEVICES=0
+python3 automatic_label_tag2text_demo.py \
+  --config GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py \
+  --tag2text_checkpoint ./Tag2Text/tag2text_swin_14m.pth \
+  --grounded_checkpoint groundingdino_swint_ogc.pth \
+  --sam_checkpoint sam_vit_h_4b8939.pth \
+  --input_image "/home/leyang/Documents/construction_site_images/2.png" \
+  --output_dir "/home/leyang/Documents/construction_site_images_output" \
+  --box_threshold 0.25 \
+  --text_threshold 0.2 \
+  --iou_threshold 0.5 \
+  --device "cuda"
+```
+
 
 - Tag2Text also provides powerful captioning capabilities, and the process with captions can refer to [BLIP](#robot-run-grounded-segment-anything--blip-demo).
 - The pseudo labels and model prediction visualization will be saved in `output_dir` as follows (right figure):
@@ -406,6 +436,25 @@ python automatic_label_demo.py \
   --output_dir "outputs" \
   --openai_key $OPENAI_API_KEY \
   --box_threshold 0.25 \
+  --text_threshold 0.2 \
+  --iou_threshold 0.5 \
+  --device "cuda"
+```
+
+Z440 Linux:
+```bash
+#todo: git ignore this 
+export OPENAI_API_KEY='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'
+export OPENAI_API_BASE=https://closeai.deno.dev/v1
+export CUDA_VISIBLE_DEVICES=0
+python3 automatic_label_demo.py \
+  --config GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py \
+  --grounded_checkpoint groundingdino_swint_ogc.pth \
+  --sam_checkpoint sam_vit_h_4b8939.pth \
+  --openai_key $OPENAI_API_KEY \
+  --input_image "/home/leyang/Documents/construction_site_images/4.png" \
+  --output_dir "/home/leyang/Documents/construction_site_images_output" \
+  --box_threshold 0.2 \
   --text_threshold 0.2 \
   --iou_threshold 0.5 \
   --device "cuda"

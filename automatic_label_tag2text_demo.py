@@ -304,12 +304,12 @@ if __name__ == "__main__":
         model, image, text_prompt, box_threshold, text_threshold, device=device
     )
 
-    # initialize SAM
-    predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
+    # # initialize SAM
+    # predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    predictor.set_image(image)
-
+    # predictor.set_image(image)
+    #
     size = image_pil.size
     H, W = size[1], size[0]
     for i in range(boxes_filt.size(0)):
@@ -326,21 +326,21 @@ if __name__ == "__main__":
     print(f"After NMS: {boxes_filt.shape[0]} boxes")
     caption = check_caption(caption, pred_phrases)
     print(f"Revise caption with number: {caption}")
-
-    transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
-
-    masks, _, _ = predictor.predict_torch(
-        point_coords = None,
-        point_labels = None,
-        boxes = transformed_boxes.to(device),
-        multimask_output = False,
-    )
-    
-    # draw output image
+    #
+    # transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
+    #
+    # masks, _, _ = predictor.predict_torch(
+    #     point_coords = None,
+    #     point_labels = None,
+    #     boxes = transformed_boxes.to(device),
+    #     multimask_output = False,
+    # )
+    #
+    # # draw output image
     plt.figure(figsize=(10, 10))
     plt.imshow(image)
-    for mask in masks:
-        show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
+    # for mask in masks:
+    #     show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
     for box, label in zip(boxes_filt, pred_phrases):
         show_box(box.numpy(), plt.gca(), label)
 
@@ -351,4 +351,4 @@ if __name__ == "__main__":
         bbox_inches="tight", dpi=300, pad_inches=0.0
     )
 
-    save_mask_data(output_dir, caption, masks, boxes_filt, pred_phrases)
+    # save_mask_data(output_dir, caption, masks, boxes_filt, pred_phrases)

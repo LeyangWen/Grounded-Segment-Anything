@@ -6,6 +6,7 @@ import numpy as np
 import json
 import torch
 from PIL import Image, ImageDraw, ImageFont
+import torchvision
 
 # Grounding DINO
 import GroundingDINO.groundingdino.datasets.transforms as T
@@ -46,41 +47,46 @@ def load_model(model_config_path, model_checkpoint_path, device):
     _ = model.eval()
     return model
 
-
-def get_grounding_output(model, image, caption, box_threshold, text_threshold, with_logits=True, device="cpu"):
-    caption = caption.lower()
-    caption = caption.strip()
-    if not caption.endswith("."):
-        caption = caption + "."
-    model = model.to(device)
-    image = image.to(device)
-    with torch.no_grad():
-        outputs = model(image[None], captions=[caption])
-    logits = outputs["pred_logits"].cpu().sigmoid()[0]  # (nq, 256)
-    boxes = outputs["pred_boxes"].cpu()[0]  # (nq, 4)
-    logits.shape[0]
-
-    # filter output
-    logits_filt = logits.clone()
-    boxes_filt = boxes.clone()
-    filt_mask = logits_filt.max(dim=1)[0] > box_threshold
-    logits_filt = logits_filt[filt_mask]  # num_filt, 256
-    boxes_filt = boxes_filt[filt_mask]  # num_filt, 4
-    logits_filt.shape[0]
-
-    # get phrase
-    tokenlizer = model.tokenizer
-    tokenized = tokenlizer(caption)
-    # build pred
-    pred_phrases = []
-    for logit, box in zip(logits_filt, boxes_filt):
-        pred_phrase = get_phrases_from_posmap(logit > text_threshold, tokenized, tokenlizer)
-        if with_logits:
-            pred_phrases.append(pred_phrase + f"({str(logit.max().item())[:4]})")
-        else:
-            pred_phrases.append(pred_phrase)
-
-    return boxes_filt, pred_phrases
+from automatic_label_demo import get_grounding_output
+# def get_grounding_output(model, image, caption, box_threshold, text_threshold, with_logits=True, device="cpu", wen_score=False):
+#     caption = caption.lower()
+#     caption = caption.strip()
+#     if not caption.endswith("."):
+#         caption = caption + "."
+#     model = model.to(device)
+#     image = image.to(device)
+#     with torch.no_grad():
+#         outputs = model(image[None], captions=[caption])
+#     logits = outputs["pred_logits"].cpu().sigmoid()[0]  # (nq, 256)
+#     boxes = outputs["pred_boxes"].cpu()[0]  # (nq, 4)
+#     logits.shape[0]
+#
+#     # filter output
+#     logits_filt = logits.clone()
+#     boxes_filt = boxes.clone()
+#     filt_mask = logits_filt.max(dim=1)[0] > box_threshold
+#     logits_filt = logits_filt[filt_mask]  # num_filt, 256
+#     boxes_filt = boxes_filt[filt_mask]  # num_filt, 4
+#     logits_filt.shape[0]
+#
+#     # get phrase
+#     tokenlizer = model.tokenizer
+#     tokenized = tokenlizer(caption)
+#     # build pred
+#     pred_phrases = []
+#     scores = []
+#     for logit, box in zip(logits_filt, boxes_filt):
+#         pred_phrase = get_phrases_from_posmap(logit > text_threshold, tokenized, tokenlizer)
+#         if with_logits:
+#             pred_phrases.append(pred_phrase + f"({str(logit.max().item())[:4]})")
+#             scores.append(logit.max().item())
+#         else:
+#             pred_phrases.append(pred_phrase)
+#             scores.append(1.0)
+#     if wen_score:
+#         return boxes_filt, pred_phrases, scores
+#     else:
+#         return boxes_filt, pred_phrases
 
 def show_mask(mask, ax, random_color=False):
     if random_color:
@@ -160,6 +166,8 @@ if __name__ == "__main__":
     box_threshold = args.box_threshold
     text_threshold = args.text_threshold
     device = args.device
+    img_name = image_path.split('/')[-1].split('.')[0]
+    iou_threshold = 0.5
 
     # make dir
     os.makedirs(output_dir, exist_ok=True)
@@ -169,18 +177,18 @@ if __name__ == "__main__":
     model = load_model(config_file, grounded_checkpoint, device=device)
 
     # visualize raw image
-    image_pil.save(os.path.join(output_dir, "raw_image.jpg"))
+    image_pil.save(os.path.join(output_dir, f"{img_name}.png"))
 
     # run grounding dino model
-    boxes_filt, pred_phrases = get_grounding_output(
+    boxes_filt ,scores, pred_phrases = get_grounding_output(
         model, image, text_prompt, box_threshold, text_threshold, device=device
     )
 
     # initialize SAM
-    predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
+    # predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    predictor.set_image(image)
+    # predictor.set_image(image)
 
     size = image_pil.size
     H, W = size[1], size[0]
@@ -190,28 +198,34 @@ if __name__ == "__main__":
         boxes_filt[i][2:] += boxes_filt[i][:2]
 
     boxes_filt = boxes_filt.cpu()
-    transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
+    # use NMS to handle overlapped boxes
+    print(f"Before NMS: {boxes_filt.shape[0]} boxes")
+    nms_idx = torchvision.ops.nms(boxes_filt, scores, iou_threshold).numpy().tolist()
+    boxes_filt = boxes_filt[nms_idx]
+    pred_phrases = [pred_phrases[idx] for idx in nms_idx]
+    print(f"After NMS: {boxes_filt.shape[0]} boxes")
+    # transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
 
-    masks, _, _ = predictor.predict_torch(
-        point_coords = None,
-        point_labels = None,
-        boxes = transformed_boxes.to(device),
-        multimask_output = False,
-    )
+    # masks, _, _ = predictor.predict_torch(
+    #     point_coords = None,
+    #     point_labels = None,
+    #     boxes = transformed_boxes.to(device),
+    #     multimask_output = False,
+    # )
     
     # draw output image
     plt.figure(figsize=(10, 10))
     plt.imshow(image)
-    for mask in masks:
-        show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
+    # for mask in masks:
+    #     show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
     for box, label in zip(boxes_filt, pred_phrases):
         show_box(box.numpy(), plt.gca(), label)
 
     plt.axis('off')
     plt.savefig(
-        os.path.join(output_dir, "grounded_sam_output.jpg"), 
+        os.path.join(output_dir, f"{img_name}_grounded_sam_output.png"),
         bbox_inches="tight", dpi=300, pad_inches=0.0
     )
 
-    save_mask_data(output_dir, masks, boxes_filt, pred_phrases)
+    # save_mask_data(output_dir, masks, boxes_filt, pred_phrases)
 

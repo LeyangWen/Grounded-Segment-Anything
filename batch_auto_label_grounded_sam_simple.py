@@ -30,18 +30,18 @@ sam_predictor = SamPredictor(sam)
 
 
 # Predict classes and hyper-param for GroundingDINO
-CLASSES = ["Crane", "Excavator", "Bulldozer", "Scraper", "Truck", "Human Worker"]
-CLASSES = ["Lifting Crane", "Excavator", "Earth Moving Bulldozer-Scraper", "Loading Truck", "Human Worker"]
+CLASSES = ["Crane", "Excavator", "Bulldozer", "Scraper", "Truck", "Worker"]
+CLASSES = ['Crane', 'Excavator', 'Bulldozer', 'Dump Truck', 'Worker'] #Crane. Excavator. Bulldozer. Dump Truck. Worker.
 BOX_THRESHOLD = 0.3
-TEXT_THRESHOLD = 0.5
+TEXT_THRESHOLD = 0.2
 NMS_THRESHOLD = 0.4
 
 if True:
     SOURCE_DIR = "/home/leyang/Documents/construction_site_images"
-    OUTPUT_DIR = "/home/leyang/Documents/construction_site_images_output"
+    OUTPUT_DIR = "/home/leyang/Documents/construction_site_images_output/GroundingDINO"
     USE_SAM = False
-    # os.mkdir(OUTPUT_DIR)
-    # SOURCE_DIR = './assets'
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
     # find all images in the directory
     images = []
     for root, dirs, files in os.walk(SOURCE_DIR):
@@ -61,7 +61,7 @@ if True:
             image=image,
             classes=CLASSES,
             box_threshold=BOX_THRESHOLD,
-            text_threshold=BOX_THRESHOLD
+            text_threshold=TEXT_THRESHOLD
         )
 
         # annotate image with detections

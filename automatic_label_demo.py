@@ -66,6 +66,20 @@ def generate_tags(caption, split=',', max_tokens=100, model="gpt-3.5-turbo"):
                            f'Caption: {caption}.'
             }
         ]
+        IOI = ['Cranes', 'Excavator', 'Bulldozer', 'Scraper', 'Truck', 'Worker']
+        prompt = [
+            {
+                'role': 'system',
+                'content': 'Given caption, determine in the following key items exist in the image. '+ \
+                           'The caption may have trouble distinguing between construction equipments so list more if you are not sure.' + \
+                           'Do not make up new items, stick strictly to the listed key items' + \
+                           f'List the key items in singular form. Split them by "{split} ". ' + \
+                           f'Key items: {IOI}.'
+                           f'Caption: {caption}.'
+            }
+        ]
+
+
         response = openai.ChatCompletion.create(model=model, messages=prompt, temperature=0.6, max_tokens=max_tokens)
         reply = response['choices'][0]['message']['content']
         # sometimes return with "noun: xxx, xxx, xxx"
@@ -236,6 +250,7 @@ if __name__ == "__main__":
     text_threshold = args.text_threshold
     iou_threshold = args.iou_threshold
     device = args.device
+    img_name = image_path.split('/')[-1].split('.')[0]
 
     openai.api_key = openai_key
     if openai_proxy:
@@ -249,7 +264,7 @@ if __name__ == "__main__":
     model = load_model(config_file, grounded_checkpoint, device=device)
 
     # visualize raw image
-    image_pil.save(os.path.join(output_dir, "raw_image.jpg"))
+    image_pil.save(os.path.join(output_dir, f"{img_name}.png"))
 
     # generate caption and tags
     # use Tag2Text can generate better captions
@@ -272,11 +287,11 @@ if __name__ == "__main__":
         model, image, text_prompt, box_threshold, text_threshold, device=device
     )
 
-    # initialize SAM
-    predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
+    # # initialize SAM
+    # predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    predictor.set_image(image)
+    # predictor.set_image(image)
 
     size = image_pil.size
     H, W = size[1], size[0]
@@ -295,28 +310,29 @@ if __name__ == "__main__":
     caption = check_caption(caption, pred_phrases)
     print(f"Revise caption with number: {caption}")
 
-    transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
-
-    masks, _, _ = predictor.predict_torch(
-        point_coords = None,
-        point_labels = None,
-        boxes = transformed_boxes.to(device),
-        multimask_output = False,
-    )
+    # transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
+    #
+    # masks, _, _ = predictor.predict_torch(
+    #     point_coords = None,
+    #     point_labels = None,
+    #     boxes = transformed_boxes.to(device),
+    #     multimask_output = False,
+    # )
     
     # draw output image
     plt.figure(figsize=(10, 10))
     plt.imshow(image)
-    for mask in masks:
-        show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
+    # for mask in masks:
+    #     show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
     for box, label in zip(boxes_filt, pred_phrases):
         show_box(box.numpy(), plt.gca(), label)
+
 
     plt.title(caption)
     plt.axis('off')
     plt.savefig(
-        os.path.join(output_dir, "automatic_label_output.jpg"), 
+        os.path.join(output_dir, f"{img_name}_automatic_label_output.png"),
         bbox_inches="tight", dpi=300, pad_inches=0.0
     )
 
-    save_mask_data(output_dir, caption, masks, boxes_filt, pred_phrases)
+    # save_mask_data(output_dir, caption, masks, boxes_filt, pred_phrases)
