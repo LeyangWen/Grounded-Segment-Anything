@@ -9,6 +9,8 @@ import json
 import torch
 from PIL import Image, ImageDraw, ImageFont
 import torchvision
+import warnings
+warnings.filterwarnings("ignore")
 
 # Grounding DINO
 import GroundingDINO.groundingdino.datasets.transforms as T
@@ -16,6 +18,7 @@ from GroundingDINO.groundingdino.models import build_model
 from GroundingDINO.groundingdino.util import box_ops
 from GroundingDINO.groundingdino.util.slconfig import SLConfig
 from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
+from groundingdino.util.inference import Model
 
 # segment anything
 from segment_anything import build_sam, SamPredictor
@@ -24,15 +27,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def format_bbox(boxes_filt, pred_phrases):
+def format_bbox(boxes_filt, pred_phrases, classes):
     output_text = ''
     for box, label in zip(boxes_filt, pred_phrases):
         box.numpy()
         x0, y0 = box[0], box[1] # bot left most likely, not checked
         w, h = box[2] - box[0], box[3] - box[1]
         x, y = (box[2] + box[0])/2, (box[3] + box[1])/2
-        output_text.join(f'{label} {x} {y} {w} {h}\n')
-    print(output_text)
+        label = label[:label.index('(')]
+        if label == '':
+            label_idx = -1
+        else:
+            # if label[0] == '#':
+            #     label = 'excavator'  # todo: quick fix, not sure why # is generated in GDINO
+            label_idx = Model.find_index(label, classes)
+        output_text = output_text + f'{label_idx} {x} {y} {w} {h}\n'
+    # print(output_text)
     return output_text
 
 
@@ -144,30 +154,35 @@ if __name__ == "__main__":
     text_threshold = args.text_threshold
     device = args.device
     iou_threshold = args.iou_threshold
+    classes = text_prompt.lower().replace('.','').split()
+    print(classes)
 
     # load model
     model = load_model(config_file, grounded_checkpoint, device=device)
 
     ######################################################
-    image_folder = r'Z:\images'
-    text_folder = r'Z:\auto_labels'
-    visualize_folder = r'Z:\visualize'
-    visualize = True
-
+    image_folder = r'/media/leyang/New Volume/i3ce2023_datathon/youtube_images/Frames'
+    text_folder = r'/media/leyang/New Volume/i3ce2023_datathon/youtube_images/auto_labels'
+    visualize_folder = r'/media/leyang/New Volume/i3ce2023_datathon/youtube_images/visualize'
     start_time = time.time()
     for folder_idx, (root, dirs, files) in enumerate(os.walk(image_folder)):
-        pass # search through the folder and subfolders for all images
-    folder_length = folder_idx
+        # search through the folder and subfolders for all images
+        folder_length = folder_idx
+    print(f'Found {folder_length} folders')
     for folder_idx, (root, dirs, files) in enumerate(os.walk(image_folder)):
         file_length = len(files)
         for file_idx, file in enumerate(files):
+            if file_idx >5:
+                visualize = False
+            else:
+                visualize = True
             timestamp = time.time()
             if file.endswith('.jpg'):
                 image_name = os.path.join(root, file)
                 txt_name = image_name.replace('.jpg', '.txt').replace(image_folder, text_folder)
                 # check if txt file exists
                 if os.path.exists(txt_name):
-                    print(f'Folder: {folder_idx}/{folder_length} | file: {file_idx}/{file_length} | {txt_name} exists, skipping')
+                    print(f'Folder: {folder_idx}/{folder_length} | file: {file_idx}/{file_length} | {txt_name} exists, skipping', end='\r')
                     continue
 
                 '''
@@ -193,7 +208,6 @@ if __name__ == "__main__":
                 nms_idx = torchvision.ops.nms(boxes_filt, scores, iou_threshold).numpy().tolist()
                 boxes_filt = boxes_filt[nms_idx]
                 pred_phrases = [pred_phrases[idx] for idx in nms_idx]
-                print(nms_idx, pred_phrases)
                 # print(f"After NMS: {boxes_filt.shape[0]} boxes")
 
                 if visualize:
@@ -216,15 +230,15 @@ if __name__ == "__main__":
                     )
 
 
-                ouput_text = format_bbox(boxes_filt, pred_phrases)
+                ouput_text = format_bbox(boxes_filt, pred_phrases, classes)
                 # create folder if it doesn't exist
                 if not os.path.exists(os.path.dirname(txt_name)):
                     os.makedirs(os.path.dirname(txt_name))
                 with open(txt_name, 'w') as f:
                     f.write(ouput_text)
                     f.close()
-                time = time.time() - timestamp
+                this_time = time.time() - timestamp
                 cum_time = time.time() - start_time
-                print(f'Folder: {folder_idx}/{folder_length} | file: {file_idx}/{file_length}| time: {time:.2f}s | cum time: {str(datetime.timedelta(seconds=cum_time))} | {txt_name} created ')
+                print(f'Folder: {folder_idx}/{folder_length} | file: {file_idx}/{file_length}| time: {this_time:.2f}s | cum time: {datetime.timedelta(seconds=cum_time)} | {txt_name} created ', end='\r')
 
 

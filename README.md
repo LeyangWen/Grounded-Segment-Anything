@@ -313,6 +313,20 @@ python3 grounded_sam_demo.py \
   --device "cuda"
 ```
 
+Z440 Linux: (***batch run***)
+```bash
+export CUDA_VISIBLE_DEVICES=0
+python3 batch_auto_label_grounded_sam_demo.py \
+  --config GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py \
+  --grounded_checkpoint groundingdino_swint_ogc.pth \
+  --sam_checkpoint sam_vit_h_4b8939.pth \
+  --box_threshold 0.2 \
+  --text_threshold 0.25 \
+  --iou_threshold 0.5 \
+  --text_prompt "Crane. Excavator. Bulldozer. DumpTruck. Worker." \
+  --device "cuda"
+```
+
 - The model prediction visualization will be saved in `output_dir` as follow:
 
 ![](./assets/grounded_sam_output_demo1.jpg)
