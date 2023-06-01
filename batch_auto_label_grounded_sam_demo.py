@@ -164,6 +164,14 @@ if __name__ == "__main__":
     image_folder = r'/media/leyang/New Volume/i3ce2023_datathon/youtube_images/Frames'
     text_folder = r'/media/leyang/New Volume/i3ce2023_datathon/youtube_images/auto_labels'
     visualize_folder = r'/media/leyang/New Volume/i3ce2023_datathon/youtube_images/visualize'
+    file_extension = '.jpg'
+
+    # text_folder = r'/media/leyang/New Volume/i3ce2023_datathon/bing_images/auto_labels'
+    # visualize_folder = r'/media/leyang/New Volume/i3ce2023_datathon/bing_images/visualize'
+    # image_folder = r'/media/leyang/New Volume/i3ce2023_datathon/bing_images/good_images'
+    # file_extension = '.jpeg'
+
+
     start_time = time.time()
     for folder_idx, (root, dirs, files) in enumerate(os.walk(image_folder)):
         # search through the folder and subfolders for all images
@@ -172,14 +180,15 @@ if __name__ == "__main__":
     for folder_idx, (root, dirs, files) in enumerate(os.walk(image_folder)):
         file_length = len(files)
         for file_idx, file in enumerate(files):
-            if file_idx >5:
+            if file_idx > 5:
                 visualize = False
+                # break
             else:
                 visualize = True
             timestamp = time.time()
-            if file.endswith('.jpg'):
+            if file.endswith(file_extension):
                 image_name = os.path.join(root, file)
-                txt_name = image_name.replace('.jpg', '.txt').replace(image_folder, text_folder)
+                txt_name = image_name.replace(file_extension, '.txt').replace(image_folder, text_folder)
                 # check if txt file exists
                 if os.path.exists(txt_name):
                     print(f'Folder: {folder_idx}/{folder_length} | file: {file_idx}/{file_length} | {txt_name} exists, skipping', end='\r')
